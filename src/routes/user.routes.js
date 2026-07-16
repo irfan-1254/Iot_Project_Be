@@ -10,8 +10,4 @@ router.get('/me', authenticate, userController.getMe);
 router.patch('/me', authenticate, validate(userValidator.updateMe), userController.updateMe);
 router.delete('/me', authenticate, userController.deleteMe);
 
-// Admin-only view to get list of users (Riders)
-// STUB: Future Admin/Fleet Feature
-// router.get('/', authenticate, userController.getUsers);
-
 module.exports = router;

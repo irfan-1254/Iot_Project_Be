@@ -3,6 +3,8 @@ const prisma = require('../config/prisma');
 const ApiError = require('../utils/ApiError');
 const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require('../utils/generateToken');
 const firebaseService = require('./firebase.service');
+const crypto = require('crypto');
+const mailService = require('./mail.service');
 
 /**
  * Register a new user
@@ -11,7 +13,6 @@ const firebaseService = require('./firebase.service');
 const register = async (userData) => {
   const { name, email, phone, password } = userData;
 
-  // Check if email or phone already exists
   const existingUser = await prisma.user.findFirst({
     where: {
       OR: [{ email }, { phone }],
@@ -30,6 +31,10 @@ const register = async (userData) => {
   // Hash password
   const passwordHash = await bcrypt.hash(password, 10);
 
+  const otp = crypto.randomInt(100000, 999999).toString();
+  const hashedOtp = await bcrypt.hash(otp, 10);
+  const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+
   // Create user and initialize empty analytics snapshot in a transaction
   const result = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
@@ -38,12 +43,16 @@ const register = async (userData) => {
         email,
         phone,
         passwordHash,
+        isVerified: false,
+        emailVerificationOtp: hashedOtp,
+        emailVerificationExpires: otpExpiry,
       },
       select: {
         id: true,
         name: true,
         email: true,
         phone: true,
+        isVerified: true,
 
         createdAt: true,
       },
@@ -57,6 +66,13 @@ const register = async (userData) => {
 
     return user;
   });
+
+  // Send OTP
+  await mailService.sendEmail(
+    email,
+    'Verify your Smart Helmet Account',
+    `Welcome ${name}! Your email verification code is: ${otp}. This code will expire in 10 minutes.`
+  );
 
   return result;
 };
@@ -73,6 +89,10 @@ const login = async (email, password) => {
 
   if (!user) {
     throw new ApiError(401, 'Invalid email or password.');
+  }
+
+  if (!user.isVerified) {
+    throw new ApiError(403, 'Email not verified. Please verify your email first.');
   }
 
   // Compare passwords
@@ -159,9 +179,77 @@ const firebaseSync = async (userId, firebaseToken) => {
   return updatedUser;
 };
 
+const verifyEmail = async (email, otp) => {
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) {
+    throw new ApiError(404, 'User not found.');
+  }
+
+  if (user.isVerified) {
+    throw new ApiError(400, 'User is already verified.');
+  }
+
+  if (!user.emailVerificationOtp || !user.emailVerificationExpires) {
+    throw new ApiError(400, 'No verification requested. Please request a new OTP.');
+  }
+
+  if (new Date() > user.emailVerificationExpires) {
+    throw new ApiError(400, 'OTP has expired. Please request a new one.');
+  }
+
+  const isMatch = await bcrypt.compare(otp, user.emailVerificationOtp);
+  if (!isMatch) {
+    throw new ApiError(400, 'Invalid OTP.');
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      isVerified: true,
+      emailVerificationOtp: null,
+      emailVerificationExpires: null,
+    },
+  });
+
+  return { success: true };
+};
+
+const resendOtp = async (email) => {
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) {
+    throw new ApiError(404, 'User not found.');
+  }
+
+  if (user.isVerified) {
+    throw new ApiError(400, 'User is already verified.');
+  }
+
+  const otp = crypto.randomInt(100000, 999999).toString();
+  const hashedOtp = await bcrypt.hash(otp, 10);
+  const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      emailVerificationOtp: hashedOtp,
+      emailVerificationExpires: otpExpiry,
+    },
+  });
+
+  await mailService.sendEmail(
+    email,
+    'Your New Verification Code',
+    `Hello ${user.name}, your new email verification code is: ${otp}. This code will expire in 10 minutes.`
+  );
+
+  return { success: true };
+};
+
 module.exports = {
   register,
   login,
   refresh,
   firebaseSync,
+  verifyEmail,
+  resendOtp,
 };

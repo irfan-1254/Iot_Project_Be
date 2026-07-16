@@ -28,9 +28,24 @@ const firebaseSync = z.object({
   }),
 });
 
+const verifyEmail = z.object({
+  body: z.object({
+    email: z.string({ required_error: 'Email is required' }).email('Invalid email address'),
+    otp: z.string({ required_error: 'OTP is required' }).length(6, 'OTP must be exactly 6 digits'),
+  }),
+});
+
+const resendOtp = z.object({
+  body: z.object({
+    email: z.string({ required_error: 'Email is required' }).email('Invalid email address'),
+  }),
+});
+
 module.exports = {
   register,
   login,
   refresh,
   firebaseSync,
+  verifyEmail,
+  resendOtp,
 };

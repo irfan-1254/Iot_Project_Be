@@ -52,6 +52,9 @@ model User {
   email             String             @unique
   phone             String             @unique
   passwordHash      String
+  isVerified        Boolean            @default(false)
+  emailVerificationOtp String?
+  emailVerificationExpires DateTime?
 
   firebaseUid       String?            @unique
   createdAt         DateTime           @default(now())

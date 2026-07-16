@@ -44,10 +44,26 @@ const firebaseSync = catchAsync(async (req, res) => {
   res.status(200).json(formatResponse(true, 'Firebase authentication synchronized successfully.', user));
 });
 
+// verify email
+const verifyEmail = catchAsync(async (req, res) => {
+  const { email, otp } = req.body;
+  await authService.verifyEmail(email, otp);
+  res.status(200).json(formatResponse(true, 'Email verified successfully. You can now log in.'));
+});
+
+// resend otp
+const resendOtp = catchAsync(async (req, res) => {
+  const { email } = req.body;
+  await authService.resendOtp(email);
+  res.status(200).json(formatResponse(true, 'Verification code sent successfully.'));
+});
+
 module.exports = {
   register,
   login,
   refresh,
   logout,
   firebaseSync,
+  verifyEmail,
+  resendOtp,
 };
