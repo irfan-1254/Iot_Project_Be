@@ -1,0 +1,30 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Next-Gen Smart Helmet Backend API",
+    "version": "1.0.0",
+    "description": "Production-ready REST and Real-Time backend API documentation."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Development Local Server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {},
+  "tags": []
+}

@@ -1,0 +1,192 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+
+
+enum RideStatus {
+  ACTIVE
+  COMPLETED
+}
+
+enum IncidentType {
+  CRASH
+  MANUAL_SOS
+  FALL
+}
+
+enum ConfirmationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  AUTO_TRIGGERED
+}
+
+enum NotificationType {
+  SOS
+  CRASH
+  SYSTEM
+}
+
+enum NotificationChannel {
+  PUSH
+  EMAIL
+  BOTH
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  DELIVERED
+}
+
+model User {
+  id                String             @id @default(uuid())
+  name              String
+  email             String             @unique
+  phone             String             @unique
+  passwordHash      String
+
+  firebaseUid       String?            @unique
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  helmets           Helmet[]
+  rides             Ride[]
+  emergencyContacts EmergencyContact[]
+  incidents         Incident[]
+  notifications     Notification[]
+  analyticsSnapshot AnalyticsSnapshot?
+
+  @@index([email])
+  @@index([phone])
+}
+
+model Helmet {
+  id              String     @id @default(uuid())
+  serialNumber    String     @unique
+  bleMacAddress   String     @unique
+  ownerId         String?
+  owner           User?      @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  firmwareVersion String?
+  batteryLevel    Int?
+  pairingStatus   Boolean    @default(false)
+  lastSeenAt      DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  rides           Ride[]
+  incidents       Incident[]
+
+  @@index([serialNumber])
+  @@index([bleMacAddress])
+}
+
+model EmergencyContact {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  email        String?
+  phone        String
+  relationship String
+  priority     Int      @default(1)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Ride {
+  id             String          @id @default(uuid())
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  helmetId       String?
+  helmet         Helmet?         @relation(fields: [helmetId], references: [id], onDelete: SetNull)
+  startTime      DateTime        @default(now())
+  endTime        DateTime?
+  startLocation  String?
+  endLocation    String?
+  distance       Float           @default(0.0) // distance in km
+  avgSpeed       Float           @default(0.0) // km/h
+  maxSpeed       Float           @default(0.0) // km/h
+  route          Json?           // Array of geo points: [{lat, lng, timestamp, speed, heartRate}]
+  status         RideStatus      @default(ACTIVE)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  healthReadings HealthReading[]
+  incidents      Incident[]
+
+  @@index([userId])
+  @@index([helmetId])
+}
+
+model HealthReading {
+  id           String   @id @default(uuid())
+  rideId       String
+  ride         Ride     @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  timestamp    DateTime @default(now())
+  heartRate    Int
+  bloodPressure String?
+  fatigueScore Float?
+  createdAt    DateTime @default(now())
+
+  @@index([rideId])
+  @@index([timestamp])
+}
+
+model Incident {
+  id                 String             @id @default(uuid())
+  userId             String
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  helmetId           String?
+  helmet             Helmet?            @relation(fields: [helmetId], references: [id], onDelete: SetNull)
+  rideId             String?
+  ride               Ride?              @relation(fields: [rideId], references: [id], onDelete: SetNull)
+  type               IncidentType       @default(CRASH)
+  detectedAt         DateTime           @default(now())
+  gpsLat             Float
+  gpsLng             Float
+  confirmationStatus ConfirmationStatus @default(PENDING)
+  resolvedAt         DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  notifications      Notification[]
+
+  @@index([userId])
+  @@index([helmetId])
+  @@index([rideId])
+  @@index([detectedAt])
+}
+
+model Notification {
+  id         String              @id @default(uuid())
+  userId     String
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  incidentId String?
+  incident   Incident?           @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+  type       NotificationType
+  channel    NotificationChannel
+  status     NotificationStatus  @default(PENDING)
+  sentAt     DateTime            @default(now())
+  createdAt  DateTime            @default(now())
+
+  @@index([userId])
+  @@index([incidentId])
+}
+
+model AnalyticsSnapshot {
+  id               String   @id @default(uuid())
+  userId           String?  @unique
+  user             User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  totalRides       Int      @default(0)
+  totalDistance    Float    @default(0.0)
+  averageSpeed     Float    @default(0.0)
+  averageHeartRate Float    @default(0.0)
+  totalIncidents   Int      @default(0)
+  lastUpdated      DateTime @default(now()) @updatedAt
+}
