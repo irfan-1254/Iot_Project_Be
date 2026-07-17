@@ -12,7 +12,7 @@ router.post('/login', authLimiter, validate(authValidator.login), authController
 router.post('/verify-email', validate(authValidator.verifyEmail), authController.verifyEmail);
 router.post('/resend-otp', authLimiter, validate(authValidator.resendOtp), authController.resendOtp);
 router.post('/refresh', validate(authValidator.refresh), authController.refresh);
-router.post('/logout', authController.logout);
+router.post('/logout', authenticate, authController.logout);
 router.post('/firebase-sync', authenticate, validate(authValidator.firebaseSync), authController.firebaseSync);
 
 module.exports = router;

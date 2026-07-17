@@ -32,8 +32,18 @@ const refresh = catchAsync(async (req, res) => {
 
 // logout
 const logout = catchAsync(async (req, res) => {
+  const userId = req.user?.id;
+  if (userId) {
+    // Unlink Firebase token so the device stops receiving push notifications
+    const prisma = require('../config/prisma');
+    await prisma.user.update({
+      where: { id: userId },
+      data: { firebaseUid: null }
+    });
+  }
+
   res.clearCookie('refreshToken');
-  res.status(200).json(formatResponse(true, 'Logout successful.'));
+  res.status(200).json(formatResponse(true, 'Logout successful. Firebase token unlinked.'));
 });
 
 // firebase sync
