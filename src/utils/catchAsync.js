@@ -1,7 +1,7 @@
 /**
  * Wraps async functions to catch errors and pass them to next middleware
  * @param {Function} fn - Async controller function
- * @returns {Function} Express middleware function
+ * @returns {Function} Express middleware functions
  */
 const catchAsync = (fn) => {
   return (req, res, next) => {
