@@ -21,20 +21,26 @@ const transports = [
       )
     ),
   }),
-  // Error log file
-  new winston.transports.File({
-    filename: path.join(__dirname, '../../logs/error.log'),
-    level: 'error',
-    maxsize: 5242880, // 5MB
-    maxFiles: 5,
-  }),
-  // Combined log file
-  new winston.transports.File({
-    filename: path.join(__dirname, '../../logs/combined.log'),
-    maxsize: 5242880, // 5MB
-    maxFiles: 5,
-  }),
 ];
+
+// Disable file logging on Vercel because the filesystem is read-only
+if (!process.env.VERCEL) {
+  transports.push(
+    // Error log file
+    new winston.transports.File({
+      filename: path.join(__dirname, '../../logs/error.log'),
+      level: 'error',
+      maxsize: 5242880, // 5MB
+      maxFiles: 5,
+    }),
+    // Combined log file
+    new winston.transports.File({
+      filename: path.join(__dirname, '../../logs/combined.log'),
+      maxsize: 5242880, // 5MB
+      maxFiles: 5,
+    })
+  );
+}
 
 const logger = winston.createLogger({
   level,
